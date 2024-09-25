@@ -1,11 +1,1 @@
-[
-  {
-    "listName": "1"
-  },
-  {
-    "listName": "2"
-  },
-  {
-    "listName": "3"
-  }
-]
+[{"itemName":"potatoes","category":"vegetables","quantity":"60"},{"itemName":"apple","category":"fruit","quantity":"5"}]
