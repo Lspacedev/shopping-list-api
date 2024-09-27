@@ -98,7 +98,7 @@ const server = http.createServer((req, res) => {
             res.end(JSON.stringify(list));
           }
         } else {
-          res.end("Item not found");
+          res.end("List not found");
         }
       } catch (err) {
         console.error(err);
@@ -137,8 +137,8 @@ const server = http.createServer((req, res) => {
                   val = getInputValue(body);
                   obj = arrayToObject(val);
                 }
-                if (typeof obj.itemName !== "undefined") {
-                  list.itemName = obj.itemName;
+                if (typeof obj.listName !== "undefined") {
+                  list.listName = obj.listName;
                 }
                 if (typeof obj.category !== "undefined") {
                   list.category = obj.category;
@@ -159,7 +159,7 @@ const server = http.createServer((req, res) => {
               });
           }
         } else {
-          res.end("Item not found");
+          res.end("List not found");
         }
       } catch (err) {
         console.error(err);
@@ -197,7 +197,7 @@ const server = http.createServer((req, res) => {
             });
           }
         } else {
-          res.end("Item not found");
+          res.end("List not found");
         }
       } catch (err) {
         console.error(err);
@@ -208,15 +208,15 @@ const server = http.createServer((req, res) => {
 });
 function getInputValue(str) {
   let val = str.replace(/[^a-z0-9-]/gi, ",");
-  console.log(val);
+  //console.log(val);
   return val.split(",");
 }
 function arrayToObject(arr) {
   let obj = {};
 
   arr.forEach((element, i) => {
-    if (element === "itemName") {
-      obj.itemName = arr[i + 1];
+    if (element === "listName") {
+      obj.listName = arr[i + 1];
     }
     if (element === "category") {
       obj.category = arr[i + 1];
@@ -225,27 +225,19 @@ function arrayToObject(arr) {
       obj.quantity = arr[i + 1];
     }
     if (element.includes("img")) {
-      var arrayBufferView = new Uint8Array(arr[i + 3]);
-      var blob = new Blob([arrayBufferView], { type: "image/jpeg" });
-      // let part1 = arr[i + 2];
-      // let part2 = arr[i + 3];
-      // let part3 = arr[i + 4];
-      // let img = part1 + part2;
-      // fs.writeFile(
-      //   "packageName.png",
-      //   Buffer.from(part2, "binary"),
-      //   function (err) {
-      //     if (err) throw err;
-      //     console.log("success");
-      //   }
-      // );
+    
+      let part1 = arr[i + 2];
+      let part2 = arr[i + 3];
+      let part3 = arr[i + 4];
+     let imgs = part1 + part2;
+      var buf = new Buffer.from(imgs, 'binary');
+     var blob = new Blob([buf], { type: "image/png" });
+    
+  fs.writeFile('image.png', buf, (err)=>console.log(err));
+  obj.img = 'data:image/png;base64,' + btoa(blob);
+  let base64Image = 'data:image/png;base64,' + Buffer.from(imgs).toString('base64');
 
-      // let my_uint8_array = Uint8Array.from(arr[i + 3], (c) => c.charCodeAt(0));
 
-      // let blob = new Blob([my_uint8_array], { type: "image/png" });
-
-      // let myUrl = URL.createObjectURL(blob);
-      // obj.img = myUrl;
     }
   });
   return obj;
