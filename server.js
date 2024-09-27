@@ -11,14 +11,14 @@ fs.access(folderPath, (error) => {
       if (error) {
         console.log(error);
       } else {
-        console.log("New Directory created successfully !!");
+        console.log("Storage folder created successfully!");
         let createStream = fs.createWriteStream("storage/lists.json");
         createStream.write("[]");
         createStream.end();
       }
     });
   } else {
-    console.log("Given Directory already exists !!");
+    console.log("Folder already exists!");
   }
 });
 const imagesPath = "./image-uploads";
@@ -28,17 +28,20 @@ fs.access(imagesPath, (error) => {
       if (error) {
         console.log(error);
       } else {
-        console.log("Images Directory created successfully !!");
+        console.log("Images folder created successfully!");
       }
     });
   } else {
-    console.log("Given Directory already exists !!");
+    console.log("Folder already exists!");
   }
 });
 
 const server = http.createServer((req, res) => {
   let endPoint = req.url;
   let method = req.method;
+  //sub routes
+  let subRoutes = req.url.split("/");
+  let listId = subRoutes[2];
 
   if (endPoint === "/lists" && method === "GET") {
     res.setHeader("Content-Type", "application/json");
@@ -52,9 +55,7 @@ const server = http.createServer((req, res) => {
 
       res.end(jsonString);
     });
-  }
-
-  if (endPoint === "/lists" && method === "POST") {
+  } else if (endPoint === "/lists" && method === "POST") {
     res.setHeader("Content-Type", "application/json");
     res.statusCode = 200;
     fs.readFile("./storage/lists.json", "utf8", (err, jsonString) => {
@@ -68,7 +69,6 @@ const server = http.createServer((req, res) => {
 
         const bb = busboy({ headers: req.headers });
         bb.on("file", (name, file, info) => {
-          console.log(info);
           let extension = info.filename.substring(
             info.filename.indexOf(".") + 1
           );
@@ -114,21 +114,15 @@ const server = http.createServer((req, res) => {
                 console.error("Error writing file", err);
                 res.end();
               } else {
-                console.log("Successfully added data");
-                res.end();
+                res.end("Successfully added data");
               }
             });
           });
       } catch (err) {
-        console.error(err);
-        res.end();
+        res.end(err.message);
       }
     });
-  }
-  //sub routes
-  let subRoutes = req.url.split("/");
-  let listId = subRoutes[2];
-  if (typeof listId !== "undefined" && method === "GET") {
+  } else if (typeof listId !== "undefined" && method === "GET") {
     res.setHeader("Content-Type", "application/json");
     res.statusCode = 200;
 
@@ -153,9 +147,7 @@ const server = http.createServer((req, res) => {
         res.end();
       }
     });
-  }
-
-  if (typeof listId !== "undefined" && method === "PUT") {
+  } else if (typeof listId !== "undefined" && method === "PUT") {
     res.setHeader("Content-Type", "application/json");
     res.statusCode = 200;
 
@@ -175,7 +167,6 @@ const server = http.createServer((req, res) => {
 
             const bb = busboy({ headers: req.headers });
             bb.on("file", (name, file, info) => {
-              console.log({ info });
               if (info.mimeType.includes("image")) {
                 let extension = info.filename.substring(
                   info.filename.indexOf(".") + 1
@@ -218,7 +209,7 @@ const server = http.createServer((req, res) => {
                 if (typeof obj.quantity !== "undefined") {
                   list.quantity = obj.quantity;
                 }
-                console.log(imgPath);
+
                 if (imgPath !== "") {
                   list.img = imgPath;
                 }
@@ -242,9 +233,7 @@ const server = http.createServer((req, res) => {
         res.end();
       }
     });
-  }
-
-  if (typeof listId !== "undefined" && method === "DELETE") {
+  } else if (typeof listId !== "undefined" && method === "DELETE") {
     res.setHeader("Content-Type", "application/json");
     res.statusCode = 200;
 
@@ -269,13 +258,14 @@ const server = http.createServer((req, res) => {
                 console.error("Error writing file", err);
                 res.end();
               } else {
-                fs.unlink(`./image-uploads/${deletedList.img}`, (err) => {
-                  if (err) {
-                    console.error(err);
-                    return;
-                  }
-                  console.log("File deleted successfully");
-                });
+                if (typeof deletedList.img !== "undefined") {
+                  fs.unlink(`./image-uploads/${deletedList.img}`, (err) => {
+                    if (err) {
+                      console.error(err);
+                      return;
+                    }
+                  });
+                }
 
                 res.end("Successfully deleted data");
               }
@@ -289,6 +279,8 @@ const server = http.createServer((req, res) => {
         res.end();
       }
     });
+  } else {
+    res.end("Invalid route");
   }
 });
 function getInputValue(str) {
