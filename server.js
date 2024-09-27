@@ -2,11 +2,39 @@ const http = require("node:http");
 const fs = require("fs");
 const { url } = require("inspector");
 const { v4: uuidv4 } = require("uuid");
-// GET    /lists
-// POST   /lists
-// GET    /lists/:listId
-// UPDATE /lists/:listId/update
-// DELETE /lists/:listId/delete
+const busboy = require("busboy");
+const path = require("path");
+const folderPath = "./storage";
+fs.access(folderPath, (error) => {
+  if (error) {
+    fs.mkdir(folderPath, (error) => {
+      if (error) {
+        console.log(error);
+      } else {
+        console.log("New Directory created successfully !!");
+        let createStream = fs.createWriteStream("storage/lists.json");
+        createStream.write("[]");
+        createStream.end();
+      }
+    });
+  } else {
+    console.log("Given Directory already exists !!");
+  }
+});
+const imagesPath = "./image-uploads";
+fs.access(imagesPath, (error) => {
+  if (error) {
+    fs.mkdir(imagesPath, (error) => {
+      if (error) {
+        console.log(error);
+      } else {
+        console.log("Images Directory created successfully !!");
+      }
+    });
+  } else {
+    console.log("Given Directory already exists !!");
+  }
+});
 
 const server = http.createServer((req, res) => {
   let endPoint = req.url;
@@ -29,13 +57,32 @@ const server = http.createServer((req, res) => {
   if (endPoint === "/lists" && method === "POST") {
     res.setHeader("Content-Type", "application/json");
     res.statusCode = 200;
-    // console.log("REQ FILES", req);
     fs.readFile("./storage/lists.json", "utf8", (err, jsonString) => {
       if (err) {
         console.error(err);
         res.end();
       }
       try {
+        let id = uuidv4();
+        let imgPath = "";
+
+        const bb = busboy({ headers: req.headers });
+        bb.on("file", (name, file, info) => {
+          console.log(info);
+          let extension = info.filename.substring(
+            info.filename.indexOf(".") + 1
+          );
+          let imgName = `${id}-upload-${uuidv4()}.${extension}`;
+          const saveTo = path.join("image-uploads", imgName);
+          imgPath = imgName;
+
+          file.pipe(fs.createWriteStream(saveTo));
+        });
+        bb.on("close", () => {
+          res.writeHead(200, { Connection: "close" });
+        });
+
+        req.pipe(bb);
         let lists = JSON.parse(jsonString);
 
         let body = "";
@@ -46,15 +93,18 @@ const server = http.createServer((req, res) => {
           .on("end", () => {
             let val;
             let obj = {};
-            console.log({ body });
+
             if (body.includes("Content-Disposition")) {
               obj = parseFormData(body);
-              console.log(obj);
             } else {
               val = getInputValue(body);
               obj = arrayToObject(val);
             }
-            obj.id = uuidv4();
+            if (imgPath !== "") {
+              obj.img = imgPath;
+            }
+            obj.id = id;
+
             lists.push(obj);
 
             let updatedLists = JSON.stringify(lists);
@@ -78,7 +128,6 @@ const server = http.createServer((req, res) => {
   //sub routes
   let subRoutes = req.url.split("/");
   let listId = subRoutes[2];
-  console.log(listId);
   if (typeof listId !== "undefined" && method === "GET") {
     res.setHeader("Content-Type", "application/json");
     res.statusCode = 200;
@@ -92,7 +141,6 @@ const server = http.createServer((req, res) => {
       try {
         let lists = JSON.parse(jsonString);
         let [list] = lists.filter((list) => list.id === listId);
-        console.log({ list });
         if (typeof list !== "undefined") {
           if (JSON.stringify(list) !== "{}") {
             res.end(JSON.stringify(list));
@@ -123,6 +171,30 @@ const server = http.createServer((req, res) => {
 
         if (typeof list !== "undefined") {
           if (JSON.stringify(list) !== "{}") {
+            let imgPath = "";
+
+            const bb = busboy({ headers: req.headers });
+            bb.on("file", (name, file, info) => {
+              console.log({ info });
+              if (info.mimeType.includes("image")) {
+                let extension = info.filename.substring(
+                  info.filename.indexOf(".") + 1
+                );
+
+                let imgName = list.img;
+                if (typeof imgName === "undefined") {
+                  imgName = `${list.id}-upload-${uuidv4()}.${extension}`;
+                }
+                const saveTo = path.join("image-uploads", imgName);
+                imgPath = imgName;
+                file.pipe(fs.createWriteStream(saveTo));
+              }
+            });
+            bb.on("close", () => {
+              res.writeHead(200, { Connection: "close" });
+            });
+
+            req.pipe(bb);
             let body = "";
             req
               .on("data", (data) => {
@@ -146,6 +218,10 @@ const server = http.createServer((req, res) => {
                 if (typeof obj.quantity !== "undefined") {
                   list.quantity = obj.quantity;
                 }
+                console.log(imgPath);
+                if (imgPath !== "") {
+                  list.img = imgPath;
+                }
                 let updatedLists = JSON.stringify(lists);
                 //write to json
                 fs.writeFile("./storage/lists.json", updatedLists, (err) => {
@@ -153,7 +229,7 @@ const server = http.createServer((req, res) => {
                     console.error("Error writing file", err);
                     res.end();
                   } else {
-                    res.end("Successfully added data");
+                    res.end("Successfully updated data");
                   }
                 });
               });
@@ -184,6 +260,7 @@ const server = http.createServer((req, res) => {
 
         if (typeof list !== "undefined") {
           if (JSON.stringify(list) !== "{}") {
+            let [deletedList] = lists.filter((list) => list.id === listId);
             let filteredLists = lists.filter((list) => list.id !== listId);
             let updatedLists = JSON.stringify(filteredLists);
             //write to json
@@ -192,6 +269,14 @@ const server = http.createServer((req, res) => {
                 console.error("Error writing file", err);
                 res.end();
               } else {
+                fs.unlink(`./image-uploads/${deletedList.img}`, (err) => {
+                  if (err) {
+                    console.error(err);
+                    return;
+                  }
+                  console.log("File deleted successfully");
+                });
+
                 res.end("Successfully deleted data");
               }
             });
@@ -208,7 +293,6 @@ const server = http.createServer((req, res) => {
 });
 function getInputValue(str) {
   let val = str.replace(/[^a-z0-9-]/gi, ",");
-  //console.log(val);
   return val.split(",");
 }
 function arrayToObject(arr) {
@@ -224,28 +308,11 @@ function arrayToObject(arr) {
     if (element === "quantity") {
       obj.quantity = arr[i + 1];
     }
-    if (element.includes("img")) {
-    
-      let part1 = arr[i + 2];
-      let part2 = arr[i + 3];
-      let part3 = arr[i + 4];
-     let imgs = part1 + part2;
-      var buf = new Buffer.from(imgs, 'binary');
-     var blob = new Blob([buf], { type: "image/png" });
-    
-  fs.writeFile('image.png', buf, (err)=>console.log(err));
-  obj.img = 'data:image/png;base64,' + btoa(blob);
-  let base64Image = 'data:image/png;base64,' + Buffer.from(imgs).toString('base64');
-
-
-    }
   });
   return obj;
 }
 function parseFormData(str) {
   let val = str.split("\r\n");
-  console.log({ val });
-  //get img
 
   val = val.filter((valStr) => !valStr.match(/^-/gi));
 
