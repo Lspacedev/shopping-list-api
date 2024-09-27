@@ -152,6 +152,7 @@ const server = http.createServer((req, res) => {
     res.statusCode = 200;
 
     //read json file and return specific list using id
+
     fs.readFile("./storage/lists.json", "utf8", (err, jsonString) => {
       if (err) {
         console.error(err);
@@ -171,7 +172,7 @@ const server = http.createServer((req, res) => {
                 let extension = info.filename.substring(
                   info.filename.indexOf(".") + 1
                 );
-
+                //get image name from obj
                 let imgName = list.img;
                 if (typeof imgName === "undefined") {
                   imgName = `${list.id}-upload-${uuidv4()}.${extension}`;
