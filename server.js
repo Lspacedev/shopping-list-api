@@ -68,6 +68,7 @@ const server = http.createServer((req, res) => {
         let imgPath = "";
 
         const bb = busboy({ headers: req.headers });
+
         bb.on("file", (name, file, info) => {
           let extension = info.filename.substring(
             info.filename.indexOf(".") + 1
@@ -165,7 +166,6 @@ const server = http.createServer((req, res) => {
         if (typeof list !== "undefined") {
           if (JSON.stringify(list) !== "{}") {
             let imgPath = "";
-
             const bb = busboy({ headers: req.headers });
             bb.on("file", (name, file, info) => {
               if (info.mimeType.includes("image")) {
